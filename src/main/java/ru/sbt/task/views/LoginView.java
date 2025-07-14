@@ -69,8 +69,10 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
 
         } catch (BadCredentialsException e) {
             showError("Неверный логин или пароль");
+            loginForm.setEnabled(true);
         } catch (AuthenticationException e) {
             showError("Ошибка аутентификации");
+            loginForm.setEnabled(true);
         }
     }
 

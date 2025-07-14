@@ -1,5 +1,7 @@
 package ru.sbt.task.views;
 
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -24,5 +26,12 @@ public class MainView extends VerticalLayout implements BeforeEnterObserver {
 
     public MainView() {
         add(new H1("Welcome to the Main Page!"));
+
+        Button logoutButton = new Button("Выйти", event -> {
+            UI.getCurrent().getPage().setLocation("/logout");
+        });
+
+        logoutButton.getStyle().set("margin-top", "20px");
+        add(logoutButton);
     }
 }
