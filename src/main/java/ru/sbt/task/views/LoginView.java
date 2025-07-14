@@ -77,7 +77,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
     }
 
     private void showError(String message) {
-        Notification.show(message, 3000, Notification.Position.MIDDLE)
+        Notification.show(message, 3000, Notification.Position.BOTTOM_START)
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 
