@@ -17,11 +17,10 @@ public class TaskApplication {
 	@Bean
 	CommandLineRunner initAdmin(EmployeeRepository employeeRepo, PasswordEncoder encoder) {
 		return args -> {
-			// Проверяем, существует ли уже admin
 			if (employeeRepo.findByLogin("admin").isEmpty()) {
 				Employee admin = new Employee();
 				admin.setLogin("admin");
-				admin.setPassword(encoder.encode("admin"));  // Шифруем пароль
+				admin.setPassword(encoder.encode("admin"));
 				admin.setRole("ADMIN");
 				admin.setFullName("Администратор");
 				employeeRepo.save(admin);
