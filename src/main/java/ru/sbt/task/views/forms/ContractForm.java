@@ -1,15 +1,20 @@
 package ru.sbt.task.views.forms;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.ComponentEventListener;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.converter.StringToBigDecimalConverter;
@@ -56,16 +61,19 @@ public class ContractForm extends FormLayout {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final PointRepository pointRepository;
+    private final ClientForm clientForm;
 
     private Runnable saveHandler;
 
     @Autowired
     public ContractForm(ClientRepository clientRepository,
                         EmployeeRepository employeeRepository,
-                        PointRepository pointRepository) {
+                        PointRepository pointRepository,
+                        ClientForm clientForm) {
         this.clientRepository = clientRepository;
         this.employeeRepository = employeeRepository;
         this.pointRepository = pointRepository;
+        this.clientForm = clientForm;
 
         initFields();
         setupBinder();
@@ -74,12 +82,8 @@ public class ContractForm extends FormLayout {
     }
 
     private void initFields() {
-        // Инициализация с актуальными данными
+        configureClientComboBox();
         refreshComboBoxItems();
-
-        client.setItemLabelGenerator(Client::getFullName);
-        client.setRequiredIndicatorVisible(true);
-        client.setClearButtonVisible(true);
 
         employee.setItemLabelGenerator(Employee::getFullName);
         employee.setRequiredIndicatorVisible(true);
@@ -96,10 +100,80 @@ public class ContractForm extends FormLayout {
         term.setValue(LocalDate.now().plusMonths(1));
     }
 
+    private void configureClientComboBox() {
+        client.setItemLabelGenerator(Client::getFullName);
+        client.setRequiredIndicatorVisible(true);
+        client.setClearButtonVisible(true);
+        client.setAllowCustomValue(true);
+        client.setPageSize(20);
+        Button addButton = new Button(VaadinIcon.PLUS.create());
+        addButton.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
+        addButton.addClickListener(e -> showClientForm(""));
+        client.setPrefixComponent(addButton);
+        client.addCustomValueSetListener(e -> showClientForm(e.getDetail()));
+    }
+
+    private void showClientForm(String clientName) {
+        Client newClient = new Client();
+        newClient.setFullName(clientName);
+        Dialog dialog = new Dialog();
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("400px");
+        clientForm.setClient(newClient);
+        clientForm.setVisible(true);
+        clientForm.setSaveHandler(() -> {
+            try {
+                Client savedClient = clientForm.getClient();
+                clientRepository.save(savedClient);
+                refreshComboBoxItems();
+                client.setValue(savedClient);
+                dialog.close();
+                Notification.show("Клиент успешно создан", 3000, Notification.Position.MIDDLE);
+            } catch (Exception e) {
+                Notification.show("Ошибка при создании клиента: " + e.getMessage(),
+                        5000, Notification.Position.MIDDLE);
+                logger.error("Error creating client", e);
+            }
+        });
+        clientForm.getCancelButton().addClickListener(e -> {
+            dialog.close();
+            clientForm.clear();
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.add(clientForm);
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(true);
+        dialog.add(dialogLayout);
+        dialog.open();
+    }
+
     public void refreshComboBoxItems() {
-        client.setItems(clientRepository.findAll());
-        employee.setItems(employeeRepository.findAll());
-        point.setItems(pointRepository.findAll());
+        UI ui = UI.getCurrent();
+        if (ui != null) {
+            ui.access(() -> {
+                client.setItems(clientRepository.findAll());
+                employee.setItems(employeeRepository.findAll());
+                point.setItems(pointRepository.findAll());
+
+                client.getDataProvider().refreshAll();
+                employee.getDataProvider().refreshAll();
+                point.getDataProvider().refreshAll();
+            });
+        } else {
+            client.setItems(clientRepository.findAll());
+            employee.setItems(employeeRepository.findAll());
+            point.setItems(pointRepository.findAll());
+        }
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        super.setVisible(visible);
+        if (visible) {
+            refreshComboBoxItems();
+        }
     }
 
     private void setupBinder() {
@@ -215,5 +289,11 @@ public class ContractForm extends FormLayout {
                     5000, Notification.Position.BOTTOM_END);
             logger.error("Error saving contract", e);
         }
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        refreshComboBoxItems();
     }
 }

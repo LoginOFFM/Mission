@@ -38,7 +38,7 @@ import java.time.LocalDate;
 @Component
 @UIScope
 @Route(value = "contracts", layout = MainView.class)
-@PageTitle("Договоры")
+@PageTitle("Договоры и клиенты")
 public class ClientContractView extends VerticalLayout {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientContractView.class);
@@ -160,44 +160,35 @@ public class ClientContractView extends VerticalLayout {
         contractsLayout.setSizeFull();
         contractsLayout.setPadding(true);
         contractsLayout.setSpacing(true);
-
         configureContractFilter();
-
         Button addContractBtn = new Button("Добавить договор", VaadinIcon.PLUS.create());
         addContractBtn.addClickListener(e -> addContract());
-
         Button refreshContractBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshContractBtn.addClickListener(e -> updateContractList());
-
-        HorizontalLayout contractToolbar = new HorizontalLayout(
-                contractFilter, addContractBtn, refreshContractBtn
-        );
+        HorizontalLayout contractToolbar = new HorizontalLayout(contractFilter, addContractBtn, refreshContractBtn);
         contractToolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-
         contractsLayout.add(contractToolbar, contractGrid, contractForm);
 
         VerticalLayout clientsLayout = new VerticalLayout();
         clientsLayout.setSizeFull();
         clientsLayout.setPadding(true);
         clientsLayout.setSpacing(true);
-
         configureClientFilter();
-
         Button addClientBtn = new Button("Добавить клиента", VaadinIcon.PLUS.create());
         addClientBtn.addClickListener(e -> addClient());
-
         Button refreshClientBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshClientBtn.addClickListener(e -> updateClientList());
-
-        HorizontalLayout clientToolbar = new HorizontalLayout(
-                clientFilter, addClientBtn, refreshClientBtn
-        );
+        HorizontalLayout clientToolbar = new HorizontalLayout(clientFilter, addClientBtn, refreshClientBtn);
         clientToolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-
         clientsLayout.add(clientToolbar, clientGrid, clientForm);
 
         tabSheet.add(new Tab("Договоры"), contractsLayout);
         tabSheet.add(new Tab("Клиенты"), clientsLayout);
+        tabSheet.addSelectedChangeListener(event -> {
+            if (event.getSelectedTab().getLabel().equals("Договоры")) {
+                contractForm.refreshComboBoxItems();
+            }
+        });
 
         add(tabSheet);
         updateLists();

@@ -35,7 +35,6 @@ import ru.sbt.task.views.editor.PointEditor;
 import ru.sbt.task.views.editor.ProcurationEditor;
 
 import java.util.List;
-
 @Component
 @UIScope
 @Route(value = "admin", layout = MainView.class)
@@ -75,7 +74,6 @@ public class AdminView extends VerticalLayout {
         initTabs(employeeEditor, pointEditor, procurationEditor);
         add(tabs);
 
-        // Перенесем загрузку данных в метод onAttach
     }
 
     @Override
@@ -84,28 +82,32 @@ public class AdminView extends VerticalLayout {
         refreshAllData();
     }
 
-    private void initTabs(EmployeeEditor employeeEditor,
-                          PointEditor pointEditor,
-                          ProcurationEditor procurationEditor) {
+    private void initTabs(EmployeeEditor employeeEditor, PointEditor pointEditor, ProcurationEditor procurationEditor) {
         initEmployeeTab(employeeEditor);
         initPointTab(pointEditor);
         initProcurationTab(procurationEditor);
+
+
+        tabs.addSelectedChangeListener(event -> {
+            if (event.getSelectedTab().getLabel().equals("Сотрудники")) {
+
+                employeeEditor.loadProcurations();
+            }
+        });
     }
 
     private void refreshAllData() {
         getUI().ifPresent(ui -> ui.access(() -> {
             try {
-                // Загружаем данные
+
                 List<Employee> employees = employeeRepository.findAll();
                 List<Point> points = pointRepository.findAll();
                 List<Procuration> procurations = procurationRepository.findAll();
 
-                // Устанавливаем данные
                 employeeGrid.setItems(employees);
                 pointGrid.setItems(points);
                 procurationGrid.setItems(procurations);
 
-                // Сбрасываем фильтры
                 employeeFilter.clear();
                 pointFilter.clear();
                 procurationFilter.clear();
@@ -120,19 +122,15 @@ public class AdminView extends VerticalLayout {
         layout.setSizeFull();
         layout.setPadding(true);
         layout.setSpacing(true);
-
         configureEmployeeGrid();
         configureEmployeeFilter();
-
         Button addBtn = new Button("Добавить сотрудника", VaadinIcon.PLUS.create());
         addBtn.addClickListener(e -> {
             editor.editEmployee(new Employee());
             employeeGrid.asSingleSelect().clear();
         });
-
         Button refreshBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshBtn.addClickListener(e -> refreshEmployeeData());
-
         editor.setSaveHandler(() -> {
             employeeRepository.save(editor.getEmployee());
             refreshEmployeeData();
@@ -145,10 +143,8 @@ public class AdminView extends VerticalLayout {
                 editor.editEmployee(e.getValue());
             }
         });
-
         HorizontalLayout toolbar = new HorizontalLayout(employeeFilter, addBtn, refreshBtn);
         toolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-
         layout.add(toolbar, employeeGrid, editor);
         tabs.add(new Tab("Сотрудники"), layout);
     }
@@ -361,35 +357,28 @@ public class AdminView extends VerticalLayout {
         layout.setSizeFull();
         layout.setPadding(true);
         layout.setSpacing(true);
-
         configureProcurationGrid();
         configureProcurationFilter();
-
         Button addBtn = new Button("Добавить доверенность", VaadinIcon.PLUS.create());
         addBtn.addClickListener(e -> {
             editor.editProcuration(new Procuration());
             procurationGrid.asSingleSelect().clear();
         });
-
         Button refreshBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshBtn.addClickListener(e -> refreshProcurationData());
-
         editor.setSaveHandler(() -> {
             procurationRepository.save(editor.getProcuration());
-            refreshProcurationData();
+            refreshAllData();
             editor.setVisible(false);
             Notification.show("Доверенность сохранена", 3000, Notification.Position.BOTTOM_END);
         });
-
         procurationGrid.asSingleSelect().addValueChangeListener(e -> {
             if (e.getValue() != null) {
                 editor.editProcuration(e.getValue());
             }
         });
-
         HorizontalLayout toolbar = new HorizontalLayout(procurationFilter, addBtn, refreshBtn);
         toolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-
         layout.add(toolbar, procurationGrid, editor);
         tabs.add(new Tab("Доверенности"), layout);
     }
@@ -478,6 +467,7 @@ public class AdminView extends VerticalLayout {
             try {
                 employeeGrid.setItems(employeeRepository.findAll());
                 employeeFilter.clear();
+
             } catch (Exception e) {
                 Notification.show("Ошибка при обновлении данных сотрудников: " + e.getMessage(),
                         3000, Notification.Position.BOTTOM_END);

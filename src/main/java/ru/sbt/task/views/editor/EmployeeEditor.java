@@ -43,7 +43,7 @@ public class EmployeeEditor extends FormLayout {
 
     private Employee employee;
     private boolean isNewEmployee;
-    private Runnable saveHandler;
+    public Runnable saveHandler;
 
     @Autowired
     public EmployeeEditor(ProcurationRepository procurationRepo,
@@ -60,7 +60,7 @@ public class EmployeeEditor extends FormLayout {
         loadProcurations();
     }
 
-    private void loadProcurations() {
+    public void loadProcurations() {
         try {
             List<Procuration> procurations = procurationRepo.findAll();
             procuration.setItems(procurations);
@@ -141,10 +141,7 @@ public class EmployeeEditor extends FormLayout {
     public void editEmployee(Employee employee) {
         this.employee = employee != null ? employee : new Employee();
         this.isNewEmployee = employee == null || employee.getId() == null;
-
-        // Обновляем список доверенностей при каждом открытии
         loadProcurations();
-
         password.setPlaceholder(isNewEmployee ? "Введите пароль" : "Оставьте пустым, чтобы не менять");
         password.setRequiredIndicatorVisible(isNewEmployee);
 
@@ -162,12 +159,9 @@ public class EmployeeEditor extends FormLayout {
                         3000, Notification.Position.MIDDLE);
                 return;
             }
-
             if (binder.writeBeanIfValid(employee)) {
                 if (saveHandler != null) {
                     saveHandler.run();
-                    Notification.show("Сотрудник сохранен",
-                            2000, Notification.Position.BOTTOM_END);
                     setVisible(false);
                 }
             }

@@ -4,6 +4,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.TabSheet;
@@ -27,45 +28,48 @@ import java.util.ServiceLoader;
 @UIScope
 @Route("main")
 @PageTitle("Главная")
-public class MainView extends VerticalLayout implements RouterLayout, BeforeEnterObserver {
+public class MainView extends VerticalLayout implements RouterLayout {
 
     private final AuthenticationContext authContext;
-    private final ObjectProvider<ClientContractView> clientContractViewProvider;
-    private final ObjectProvider<AdminView> adminViewProvider;
+    private final ClientContractView clientContractView;
+    private final AdminView adminView;
 
     public MainView(AuthenticationContext authContext,
-                    ObjectProvider<ClientContractView> clientContractViewProvider,
-                    ObjectProvider<AdminView> adminViewProvider) {
+                    ClientContractView clientContractView,
+                    AdminView adminView) {
         this.authContext = authContext;
-        this.clientContractViewProvider = clientContractViewProvider;
-        this.adminViewProvider = adminViewProvider;
+        this.clientContractView = clientContractView;
+        this.adminView = adminView;
 
         setSizeFull();
         setPadding(false);
         setSpacing(false);
+        createNavigation();
     }
 
-    @Override
-    public void beforeEnter(BeforeEnterEvent event) {
-        removeAll();
+    private void createNavigation() {
+        HorizontalLayout navigation = new HorizontalLayout();
+        navigation.setPadding(true);
+        navigation.setSpacing(true);
 
+        // Кнопка для клиентской части
+        Button contractsBtn = new Button("Договоры и клиенты", e -> {
+            UI.getCurrent().navigate("contracts");
+        });
+
+        navigation.add(contractsBtn);
+
+        // Кнопка админки (только для администраторов)
         authContext.getAuthenticatedUser(UserDetails.class).ifPresent(user -> {
-            TabSheet tabSheet = new TabSheet();
-            tabSheet.setSizeFull();
-
-
-            ClientContractView contractsView = clientContractViewProvider.getObject();
-            tabSheet.add("Договоры и клиенты", contractsView);
-
             if (user.getAuthorities().stream()
                     .anyMatch(g -> g.getAuthority().equals("ROLE_ADMIN"))) {
-                // Создаем новый экземпляр AdminView для текущего UI
-                AdminView adminView = adminViewProvider.getObject();
-                tabSheet.add("Администрирование", adminView);
+                Button adminBtn = new Button("Администрирование", e -> {
+                    UI.getCurrent().navigate("admin");
+                });
+                navigation.add(adminBtn);
             }
-
-            add(tabSheet);
-            expand(tabSheet);
         });
+
+        add(navigation);
     }
 }

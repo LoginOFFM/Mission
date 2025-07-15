@@ -63,7 +63,6 @@ public class ClientForm extends FormLayout {
 
     private void setupLayout() {
         setWidth("400px");
-
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         save.addClickListener(e -> save());
         cancel.addClickListener(e -> {
@@ -78,7 +77,6 @@ public class ClientForm extends FormLayout {
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
         buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
-
         add(fullName, phone, buttons);
     }
 
@@ -98,7 +96,13 @@ public class ClientForm extends FormLayout {
     public void clear() {
         binder.readBean(new Client());
     }
+    public Button getSaveButton() {
+        return save;
+    }
 
+    public Button getCancelButton() {
+        return cancel;
+    }
     private void save() {
         try {
             if (client == null) {
