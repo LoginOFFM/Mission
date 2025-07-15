@@ -35,6 +35,7 @@ import ru.sbt.task.model.repository.EmployeeRepository;
 import ru.sbt.task.model.repository.PointRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 
 import ru.sbt.task.model.repository.*;
@@ -168,13 +169,6 @@ public class ContractForm extends FormLayout {
         }
     }
 
-    @Override
-    public void setVisible(boolean visible) {
-        super.setVisible(visible);
-        if (visible) {
-            refreshComboBoxItems();
-        }
-    }
 
     private void setupBinder() {
         binder.forField(amount)
@@ -244,14 +238,83 @@ public class ContractForm extends FormLayout {
 
     public void setContract(Contract contract) {
         this.contract = contract;
-        if (contract != null) {
-            binder.readBean(contract);
-            client.setValue(contract.getClient());
-            employee.setValue(contract.getEmployee());
-            point.setValue(contract.getPoint());
-            status.setValue(contract.getStatus());
-            term.setValue(contract.getTerm());
+        UI ui = UI.getCurrent();
+
+        if (ui != null) {
+            ui.access(() -> {
+
+                List<Client> clients = clientRepository.findAll();
+                List<Employee> employees = employeeRepository.findAll();
+                List<Point> points = pointRepository.findAll();
+
+
+                client.setItems(clients);
+                employee.setItems(employees);
+                point.setItems(points);
+
+
+                if (contract != null) {
+                    try {
+
+                        Client currentClient = clients.stream()
+                                .filter(c -> c.getId().equals(contract.getClient().getId()))
+                                .findFirst()
+                                .orElse(null);
+
+                        // Находим текущего сотрудника
+                        Employee currentEmployee = employees.stream()
+                                .filter(e -> e.getId().equals(contract.getEmployee().getId()))
+                                .findFirst()
+                                .orElse(null);
+
+                        Point currentPoint = points.stream()
+                                .filter(p -> p.getId().equals(contract.getPoint().getId()))
+                                .findFirst()
+                                .orElse(null);
+
+                        client.setValue(currentClient);
+                        employee.setValue(currentEmployee);
+                        point.setValue(currentPoint);
+
+                        status.setValue(contract.getStatus());
+                        term.setValue(contract.getTerm());
+                        amount.setValue(contract.getAmount() != null ?
+                                contract.getAmount().toString() : "");
+
+                        binder.readBean(contract);
+                    } catch (Exception e) {
+                        logger.error("Error setting contract", e);
+                        Notification.show("Ошибка загрузки данных", 3000,
+                                Notification.Position.BOTTOM_END);
+                    }
+                } else {
+                    clear();
+                }
+            });
+        } else {
+            // Fallback для случаев без UI (например, в тестах)
+            List<Client> clients = clientRepository.findAll();
+            List<Employee> employees = employeeRepository.findAll();
+            List<Point> points = pointRepository.findAll();
+
+            client.setItems(clients);
+            employee.setItems(employees);
+            point.setItems(points);
+
+            if (contract != null) {
+                client.setValue(contract.getClient());
+                employee.setValue(contract.getEmployee());
+                point.setValue(contract.getPoint());
+                status.setValue(contract.getStatus());
+                term.setValue(contract.getTerm());
+                amount.setValue(contract.getAmount() != null ?
+                        contract.getAmount().toString() : "");
+                binder.readBean(contract);
+            } else {
+                clear();
+            }
         }
+
         setVisible(true);
     }
 

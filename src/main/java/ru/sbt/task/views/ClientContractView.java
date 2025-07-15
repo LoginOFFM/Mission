@@ -1,5 +1,6 @@
 package ru.sbt.task.views;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -212,7 +213,7 @@ public class ClientContractView extends VerticalLayout {
         contractForm.setSaveHandler(() -> {
             try {
                 contractRepository.save(contractForm.getContract());
-                contractForm.refreshComboBoxItems(); // Обновляем комбобоксы
+                contractForm.refreshComboBoxItems(); 
                 updateContractList();
                 contractForm.setVisible(false);
                 Notification.show("Договор сохранен", 3000, Notification.Position.BOTTOM_END);
@@ -227,7 +228,7 @@ public class ClientContractView extends VerticalLayout {
         clientForm.setSaveHandler(() -> {
             try {
                 clientRepository.save(clientForm.getClient());
-                contractForm.refreshComboBoxItems(); // Обновляем комбобоксы в форме договора
+                contractForm.refreshComboBoxItems();
                 updateClientList();
                 clientForm.setVisible(false);
                 Notification.show("Клиент сохранен", 3000, Notification.Position.BOTTOM_END);
@@ -286,8 +287,17 @@ public class ClientContractView extends VerticalLayout {
             contractForm.setVisible(false);
             return;
         }
-        contractForm.setContract(contract);
-        contractForm.setVisible(true);
+        // Убедитесь, что форма видима и обновляется в UI потоке
+        UI ui = UI.getCurrent();
+        if (ui != null) {
+            ui.access(() -> {
+                contractForm.setContract(contract);
+                contractForm.setVisible(true);
+            });
+        } else {
+            contractForm.setContract(contract);
+            contractForm.setVisible(true);
+        }
     }
 
     private void confirmContractDeletion(Contract contract) {
