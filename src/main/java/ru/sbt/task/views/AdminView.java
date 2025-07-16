@@ -88,12 +88,21 @@ public class AdminView extends VerticalLayout {
         initProcurationTab(procurationEditor);
 
 
+
         tabs.addSelectedChangeListener(event -> {
+            employeeEditor.setVisible(false);
+            pointEditor.setVisible(false);
+            procurationEditor.setVisible(false);
+            employeeGrid.asSingleSelect().clear();
+            pointGrid.asSingleSelect().clear();
+            procurationGrid.asSingleSelect().clear();
             if (event.getSelectedTab().getLabel().equals("Сотрудники")) {
 
                 employeeEditor.loadProcurations();
             }
         });
+        tabs.setWidthFull();
+        tabs.getStyle().set("margin", "0 auto");
     }
 
     private void refreshAllData() {

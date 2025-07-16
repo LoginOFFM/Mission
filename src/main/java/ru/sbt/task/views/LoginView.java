@@ -33,7 +33,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         if (isUserLoggedIn()) {
-            event.forwardTo("main");
+            event.forwardTo("contracts");
         }
     }
 
@@ -65,7 +65,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
             );
 
             SecurityContextHolder.getContext().setAuthentication(auth);
-            UI.getCurrent().navigate("main");
+            UI.getCurrent().navigate("contracts");
 
         } catch (BadCredentialsException e) {
             showError("Неверный логин или пароль");

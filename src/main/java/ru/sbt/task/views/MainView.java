@@ -1,9 +1,11 @@
 package ru.sbt.task.views;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
@@ -44,20 +46,33 @@ public class MainView extends VerticalLayout implements RouterLayout {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
+
         createNavigation();
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        // Автоматическая навигация на вкладку "Договоры и клиенты"
+        UI.getCurrent().navigate("contracts");
     }
 
     private void createNavigation() {
         HorizontalLayout navigation = new HorizontalLayout();
+        navigation.setWidthFull();
         navigation.setPadding(true);
         navigation.setSpacing(true);
+        navigation.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
 
         // Кнопка для клиентской части
         Button contractsBtn = new Button("Договоры и клиенты", e -> {
             UI.getCurrent().navigate("contracts");
         });
 
-        navigation.add(contractsBtn);
+        // Кнопка выхода
+        Button logoutBtn = new Button("Выйти", e -> {
+            UI.getCurrent().getPage().setLocation("/logout");
+        });
 
         // Кнопка админки (только для администраторов)
         authContext.getAuthenticatedUser(UserDetails.class).ifPresent(user -> {
@@ -70,6 +85,8 @@ public class MainView extends VerticalLayout implements RouterLayout {
             }
         });
 
+        navigation.add(contractsBtn);
+        navigation.add(logoutBtn);
         add(navigation);
     }
 }

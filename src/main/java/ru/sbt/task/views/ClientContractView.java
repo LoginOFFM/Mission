@@ -8,6 +8,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -18,7 +19,6 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,9 +120,52 @@ public class ClientContractView extends VerticalLayout {
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
             deleteBtn.addClickListener(e -> confirmContractDeletion(contract));
 
-            actions.add(editBtn, deleteBtn);
+            Button downloadBtn = new Button(VaadinIcon.DOWNLOAD.create());
+            downloadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+            downloadBtn.addClickListener(e -> downloadContract(contract));
+
+            actions.add(editBtn, deleteBtn, downloadBtn);
             return actions;
-        })).setHeader("Действия").setWidth("150px");
+        })).setHeader("Действия").setWidth("200px");
+    }
+    private void downloadContract(Contract contract) {
+        try {
+            String content = buildContractContent(contract);
+            String fileName = "contract_" + contract.getId() + ".txt";
+            UI.getCurrent().getPage().executeJs(
+                    "const content = new Blob([$0], {type: 'text/plain;charset=UTF-8'});" +
+                            "const url = URL.createObjectURL(content);" +
+                            "const a = document.createElement('a');" +
+                            "a.href = url;" +
+                            "a.download = $1;" +
+                            "document.body.appendChild(a);" +
+                            "a.click();" +
+                            "setTimeout(() => {" +
+                            "  document.body.removeChild(a);" +
+                            "  URL.revokeObjectURL(url);" +
+                            "}, 100);",
+                    content, fileName
+            );
+
+        } catch (Exception e) {
+            Notification.show("Download error: " + e.getMessage(),
+                            5000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            logger.error("Download error", e);
+        }
+    }
+
+
+    private String buildContractContent(Contract contract) {
+        return String.format(
+                "Договор №%d%n%nКлиент: %s%nСумма: %s%nСрок: %s%nМенеджер: %s%nСтатус: %s",
+                contract.getId(),
+                contract.getClient() != null ? contract.getClient().getFullName() : "Не указан",
+                contract.getAmount(),
+                contract.getTerm(),
+                contract.getEmployee() != null ? contract.getEmployee().getFullName() : "Не назначен",
+                contract.getStatus()
+        );
     }
 
     private void configureClientGrid() {
@@ -186,11 +229,16 @@ public class ClientContractView extends VerticalLayout {
         tabSheet.add(new Tab("Договоры"), contractsLayout);
         tabSheet.add(new Tab("Клиенты"), clientsLayout);
         tabSheet.addSelectedChangeListener(event -> {
+            contractForm.setVisible(false);
+            clientForm.setVisible(false);
+            contractGrid.asSingleSelect().clear();
+            clientGrid.asSingleSelect().clear();
             if (event.getSelectedTab().getLabel().equals("Договоры")) {
                 contractForm.refreshComboBoxItems();
             }
         });
-
+        tabSheet.setWidthFull();
+        tabSheet.getStyle().set("margin", "0 auto");
         add(tabSheet);
         updateLists();
     }
@@ -287,7 +335,6 @@ public class ClientContractView extends VerticalLayout {
             contractForm.setVisible(false);
             return;
         }
-        // Убедитесь, что форма видима и обновляется в UI потоке
         UI ui = UI.getCurrent();
         if (ui != null) {
             ui.access(() -> {

@@ -18,7 +18,7 @@ public class RootRedirectView extends Div implements BeforeEnterObserver {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            event.forwardTo("main");
+            event.forwardTo("contracts");
         } else {
             event.forwardTo("login");
         }

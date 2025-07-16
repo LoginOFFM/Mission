@@ -94,7 +94,7 @@ public class ContractForm extends FormLayout {
         point.setRequiredIndicatorVisible(true);
         point.setClearButtonVisible(true);
 
-        status.setItems("Активен", "Закрыт", "Просрочен");
+        status.setItems("Активен", "Закрыт");
         status.setRequiredIndicatorVisible(true);
         status.setValue("Активен");
 
@@ -238,84 +238,78 @@ public class ContractForm extends FormLayout {
 
     public void setContract(Contract contract) {
         this.contract = contract;
-        UI ui = UI.getCurrent();
+        try {
+            UI ui = UI.getCurrent();
+            if (ui != null) {
+                ui.access(() -> {
+                    try {
+                        List<Client> clients = clientRepository.findAll();
+                        List<Employee> employees = employeeRepository.findAll();
+                        List<Point> points = pointRepository.findAll();
 
-        if (ui != null) {
-            ui.access(() -> {
+                        client.setItems(clients);
+                        employee.setItems(employees);
+                        point.setItems(points);
 
+                        if (contract != null) {
+                            Client currentClient = contract.getClient() != null ?
+                                    clients.stream()
+                                            .filter(c -> c.getId().equals(contract.getClient().getId()))
+                                            .findFirst()
+                                            .orElse(null) : null;
+
+                            Employee currentEmployee = contract.getEmployee() != null ?
+                                    employees.stream()
+                                            .filter(e -> e.getId().equals(contract.getEmployee().getId()))
+                                            .findFirst()
+                                            .orElse(null) : null;
+
+                            Point currentPoint = contract.getPoint() != null ?
+                                    points.stream()
+                                            .filter(p -> p.getId().equals(contract.getPoint().getId()))
+                                            .findFirst()
+                                            .orElse(null) : null;
+
+                            client.setValue(currentClient);
+                            employee.setValue(currentEmployee);
+                            point.setValue(currentPoint);
+                            status.setValue(contract.getStatus());
+                            term.setValue(contract.getTerm());
+                            amount.setValue(contract.getAmount() != null ? contract.getAmount().toString() : "");
+                            binder.readBean(contract);
+                        } else {
+                            clear();
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error setting contract", e);
+                        Notification.show("Ошибка загрузки данных: " + e.getMessage(), 3000, Notification.Position.MIDDLE);
+                    }
+                });
+            } else {
                 List<Client> clients = clientRepository.findAll();
                 List<Employee> employees = employeeRepository.findAll();
                 List<Point> points = pointRepository.findAll();
-
 
                 client.setItems(clients);
                 employee.setItems(employees);
                 point.setItems(points);
 
-
                 if (contract != null) {
-                    try {
-
-                        Client currentClient = clients.stream()
-                                .filter(c -> c.getId().equals(contract.getClient().getId()))
-                                .findFirst()
-                                .orElse(null);
-
-                        // Находим текущего сотрудника
-                        Employee currentEmployee = employees.stream()
-                                .filter(e -> e.getId().equals(contract.getEmployee().getId()))
-                                .findFirst()
-                                .orElse(null);
-
-                        Point currentPoint = points.stream()
-                                .filter(p -> p.getId().equals(contract.getPoint().getId()))
-                                .findFirst()
-                                .orElse(null);
-
-                        client.setValue(currentClient);
-                        employee.setValue(currentEmployee);
-                        point.setValue(currentPoint);
-
-                        status.setValue(contract.getStatus());
-                        term.setValue(contract.getTerm());
-                        amount.setValue(contract.getAmount() != null ?
-                                contract.getAmount().toString() : "");
-
-                        binder.readBean(contract);
-                    } catch (Exception e) {
-                        logger.error("Error setting contract", e);
-                        Notification.show("Ошибка загрузки данных", 3000,
-                                Notification.Position.BOTTOM_END);
-                    }
+                    client.setValue(contract.getClient());
+                    employee.setValue(contract.getEmployee());
+                    point.setValue(contract.getPoint());
+                    status.setValue(contract.getStatus());
+                    term.setValue(contract.getTerm());
+                    amount.setValue(contract.getAmount() != null ? contract.getAmount().toString() : "");
+                    binder.readBean(contract);
                 } else {
                     clear();
                 }
-            });
-        } else {
-            // Fallback для случаев без UI (например, в тестах)
-            List<Client> clients = clientRepository.findAll();
-            List<Employee> employees = employeeRepository.findAll();
-            List<Point> points = pointRepository.findAll();
-
-            client.setItems(clients);
-            employee.setItems(employees);
-            point.setItems(points);
-
-            if (contract != null) {
-                client.setValue(contract.getClient());
-                employee.setValue(contract.getEmployee());
-                point.setValue(contract.getPoint());
-                status.setValue(contract.getStatus());
-                term.setValue(contract.getTerm());
-                amount.setValue(contract.getAmount() != null ?
-                        contract.getAmount().toString() : "");
-                binder.readBean(contract);
-            } else {
-                clear();
             }
+        } catch (Exception e) {
+            logger.error("Error setting contract", e);
+            Notification.show("Ошибка загрузки данных: " + e.getMessage(), 3000, Notification.Position.MIDDLE);
         }
-
-        setVisible(true);
     }
 
     public Contract getContract() {
