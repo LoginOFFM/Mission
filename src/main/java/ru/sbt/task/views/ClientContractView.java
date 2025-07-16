@@ -110,7 +110,7 @@ public class ClientContractView extends VerticalLayout {
                 .setSortable(true);
 
         contractGrid.addColumn(Contract::getTerm)
-                .setHeader("Срок")
+                .setHeader("Срок до")
                 .setSortable(true);
 
         contractGrid.addColumn(c -> c.getEmployee() != null ? c.getEmployee().getFullName() : "")
@@ -193,7 +193,7 @@ public class ClientContractView extends VerticalLayout {
                 cs.newLine();
                 cs.showText("Сумма: " + contract.getAmount());
                 cs.newLine();
-                cs.showText("Срок: " + contract.getTerm());
+                cs.showText("Срок до: " + contract.getTerm());
                 cs.newLine();
                 cs.showText("Менеджер: " + (contract.getEmployee() != null ?
                         contract.getEmployee().getFullName() : "Не назначен"));

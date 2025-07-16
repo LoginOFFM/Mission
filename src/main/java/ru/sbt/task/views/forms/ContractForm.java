@@ -51,7 +51,7 @@ public class ContractForm extends FormLayout {
 
     private final ComboBox<Client> client = new ComboBox<>("Клиент");
     private final TextField amount = new TextField("Сумма");
-    private final DatePicker term = new DatePicker("Срок");
+    private final DatePicker term = new DatePicker("Срок до");
     private final ComboBox<Employee> employee = new ComboBox<>("Сотрудник");
     private final ComboBox<Point> point = new ComboBox<>("Точка выдачи");
     private final ComboBox<String> status = new ComboBox<>("Статус");
