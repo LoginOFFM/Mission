@@ -20,6 +20,13 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.annotation.UIScope;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +40,12 @@ import ru.sbt.task.model.repository.PointRepository;
 import ru.sbt.task.views.forms.ClientForm;
 import ru.sbt.task.views.forms.ContractForm;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Base64;
 
 @Component
 @UIScope
@@ -122,50 +133,80 @@ public class ClientContractView extends VerticalLayout {
 
             Button downloadBtn = new Button(VaadinIcon.DOWNLOAD.create());
             downloadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-            downloadBtn.addClickListener(e -> downloadContract(contract));
+            downloadBtn.addClickListener(e -> downloadPdfContract(contract));
 
             actions.add(editBtn, deleteBtn, downloadBtn);
             return actions;
         })).setHeader("Действия").setWidth("200px");
     }
-    private void downloadContract(Contract contract) {
+    private void downloadPdfContract(Contract contract) {
         try {
-            String content = buildContractContent(contract);
-            String fileName = "contract_" + contract.getId() + ".txt";
+            byte[] pdfBytes = generatePdfBytes(contract);
+            String base64Pdf = Base64.getEncoder().encodeToString(pdfBytes);
             UI.getCurrent().getPage().executeJs(
-                    "const content = new Blob([$0], {type: 'text/plain;charset=UTF-8'});" +
-                            "const url = URL.createObjectURL(content);" +
-                            "const a = document.createElement('a');" +
-                            "a.href = url;" +
-                            "a.download = $1;" +
-                            "document.body.appendChild(a);" +
-                            "a.click();" +
-                            "setTimeout(() => {" +
-                            "  document.body.removeChild(a);" +
-                            "  URL.revokeObjectURL(url);" +
-                            "}, 100);",
-                    content, fileName
+                    "const byteChars = atob($0);" +
+                            "const byteNumbers = new Array(byteChars.length);" +
+                            "for (let i = 0; i < byteChars.length; i++) {" +
+                            "    byteNumbers[i] = byteChars.charCodeAt(i);" +
+                            "}" +
+                            "const byteArray = new Uint8Array(byteNumbers);" +
+                            "const blob = new Blob([byteArray], {type: 'application/pdf'});" +
+                            "const link = document.createElement('a');" +
+                            "link.href = URL.createObjectURL(blob);" +
+                            "link.download = 'contract_" + contract.getId() + ".pdf';" +
+                            "link.click();" +
+                            "setTimeout(() => URL.revokeObjectURL(link.href), 100);",
+                    base64Pdf
             );
 
         } catch (Exception e) {
-            Notification.show("Download error: " + e.getMessage(),
-                            5000, Notification.Position.MIDDLE)
+            Notification.show("Ошибка: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            logger.error("Download error", e);
         }
     }
 
+    private byte[] generatePdfBytes(Contract contract) throws IOException {
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+            PDFont font;
+            try (InputStream fontStream = getClass().getResourceAsStream("/fonts/arial.ttf")) {
+                if (fontStream != null) {
+                    font = PDType0Font.load(doc, fontStream);
+                } else {
+                    throw new IOException("Шрифт arial.ttf не найден в resources/fonts/");
+                }
+            }
 
-    private String buildContractContent(Contract contract) {
-        return String.format(
-                "Договор №%d%n%nКлиент: %s%nСумма: %s%nСрок: %s%nМенеджер: %s%nСтатус: %s",
-                contract.getId(),
-                contract.getClient() != null ? contract.getClient().getFullName() : "Не указан",
-                contract.getAmount(),
-                contract.getTerm(),
-                contract.getEmployee() != null ? contract.getEmployee().getFullName() : "Не назначен",
-                contract.getStatus()
-        );
+            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                cs.beginText();
+                cs.setFont(font, 12);
+                cs.setLeading(16f);
+                cs.newLineAtOffset(50, 700);
+                cs.setFont(font, 14);
+                cs.showText("ДОГОВОР №" + contract.getId());
+                cs.newLine();
+                cs.newLine();
+                cs.setFont(font, 12);
+                cs.showText("Клиент: " + (contract.getClient() != null ?
+                        contract.getClient().getFullName() : "Не указан"));
+                cs.newLine();
+                cs.showText("Сумма: " + contract.getAmount());
+                cs.newLine();
+                cs.showText("Срок: " + contract.getTerm());
+                cs.newLine();
+                cs.showText("Менеджер: " + (contract.getEmployee() != null ?
+                        contract.getEmployee().getFullName() : "Не назначен"));
+                cs.newLine();
+                cs.showText("Статус: " + contract.getStatus());
+                cs.newLine();
+                cs.newLine();
+                cs.endText();
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.save(out);
+            return out.toByteArray();
+        }
     }
 
     private void configureClientGrid() {
