@@ -4,6 +4,7 @@ import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -27,26 +28,30 @@ import java.util.Objects;
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ClientForm extends FormLayout {
 
-    private static final Logger logger = LoggerFactory.getLogger(ClientForm.class);
-
-    private final Binder<Client> binder = new Binder<>(Client.class);
-    private Client client;
-
     private final TextField fullName = new TextField("ФИО");
     private final TextField phone = new TextField("Телефон");
     private final Button save = new Button("Сохранить");
     private final Button cancel = new Button("Отмена");
 
+    private final Binder<Client> binder = new Binder<>(Client.class);
+    private Client client;
+    private Dialog parentDialog;
     private Runnable saveHandler;
+    private final ClientRepository clientRepository;
 
     @Autowired
     public ClientForm(ClientRepository clientRepository) {
-        setupBinder(clientRepository);
-        setupLayout();
-        setVisible(false);
+        this.clientRepository = clientRepository;
+        configureForm();
     }
 
-    private void setupBinder(ClientRepository clientRepository) {
+    private void configureForm() {
+        setWidth("400px");
+        setResponsiveSteps(new ResponsiveStep("0", 1));
+
+        fullName.setWidthFull();
+        phone.setWidthFull();
+
         binder.forField(fullName)
                 .asRequired("Обязательное поле")
                 .withValidator(name -> name.length() >= 3, "Минимум 3 символа")
@@ -58,25 +63,19 @@ public class ClientForm extends FormLayout {
                         "Неверный формат телефона", "^\\+?[0-9\\s\\-]{10,15}$"))
                 .bind(Client::getPhone, Client::setPhone);
 
-        binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
-    }
-
-    private void setupLayout() {
-        setWidth("400px");
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         save.addClickListener(e -> save());
+
         cancel.addClickListener(e -> {
-            setVisible(false);
-            if (client != null) {
-                binder.readBean(client);
-            } else {
-                clear();
+            if (parentDialog != null) {
+                parentDialog.close();
             }
         });
 
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
         buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
         add(fullName, phone, buttons);
     }
 
@@ -89,36 +88,29 @@ public class ClientForm extends FormLayout {
         return client;
     }
 
+    public void setParentDialog(Dialog dialog) {
+        this.parentDialog = dialog;
+    }
+
     public void setSaveHandler(Runnable saveHandler) {
         this.saveHandler = saveHandler;
     }
 
-    public void clear() {
-        binder.readBean(new Client());
-    }
-    public Button getSaveButton() {
-        return save;
-    }
-
-    public Button getCancelButton() {
-        return cancel;
-    }
     private void save() {
         try {
-            if (client == null) {
-                client = new Client();
+            if (binder.writeBeanIfValid(client)) {
+                Client savedClient = clientRepository.save(client);
+                if (saveHandler != null) {
+                    saveHandler.run();
+                }
+                if (parentDialog != null) {
+                    parentDialog.close();
+                }
+                Notification.show("Клиент сохранен", 3000, Notification.Position.BOTTOM_END);
             }
-            binder.writeBean(client);
-            if (saveHandler != null) {
-                saveHandler.run();
-            }
-            setVisible(false);
-        } catch (ValidationException e) {
-            logger.warn("Validation error saving client", e);
         } catch (Exception e) {
             Notification.show("Ошибка сохранения: " + e.getMessage(),
                     5000, Notification.Position.BOTTOM_END);
-            logger.error("Error saving client", e);
         }
     }
 }

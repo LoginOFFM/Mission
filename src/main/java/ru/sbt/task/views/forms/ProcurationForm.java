@@ -1,8 +1,10 @@
-package ru.sbt.task.views.editor;
+package ru.sbt.task.views.forms;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
@@ -11,11 +13,9 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import ru.sbt.task.model.entity.Procuration;
 
-import java.util.function.Consumer;
-
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class ProcurationEditor extends FormLayout {
+public class ProcurationForm extends FormLayout {
     private final TextField number = new TextField("Номер");
     private final DatePicker date = new DatePicker("Дата");
     private final Button save = new Button("Сохранить");
@@ -23,8 +23,16 @@ public class ProcurationEditor extends FormLayout {
     private final Binder<Procuration> binder = new Binder<>(Procuration.class);
     private Procuration procuration;
     private Runnable saveHandler;
+    public Dialog getParentDialog() {
+        return parentDialog;
+    }
 
-    public ProcurationEditor() {
+    public void setParentDialog(Dialog parentDialog) {
+        this.parentDialog = parentDialog;
+    }
+
+    private Dialog parentDialog;
+    public ProcurationForm() {
         configureLayout();
         configureBinder();
         setupButtons();
@@ -58,13 +66,29 @@ public class ProcurationEditor extends FormLayout {
     }
 
     private void save() {
-        if (binder.writeBeanIfValid(procuration) && saveHandler != null) {
-            saveHandler.run();
+        try {
+            if (!binder.writeBeanIfValid(procuration)) {
+                return;
+            }
+
+            if (saveHandler != null) {
+                saveHandler.run();
+            }
+
+            if (getParentDialog() != null) {
+                getParentDialog().close();
+            }
+
+        } catch (Exception e) {
+            Notification.show("Ошибка сохранения: " + e.getMessage(),
+                    3000, Notification.Position.BOTTOM_END);
         }
     }
 
     private void cancel() {
-        setVisible(false);
+        if (parentDialog != null) {
+            parentDialog.close();
+        }
         binder.readBean(procuration);
     }
 

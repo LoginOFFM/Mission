@@ -33,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.sbt.task.model.entity.Client;
 import ru.sbt.task.model.entity.Contract;
+import ru.sbt.task.model.entity.Point;
 import ru.sbt.task.model.repository.ClientRepository;
 import ru.sbt.task.model.repository.ContractRepository;
 import ru.sbt.task.model.repository.EmployeeRepository;
@@ -57,8 +58,6 @@ public class ClientContractView extends VerticalLayout {
 
     private final ContractRepository contractRepository;
     private final ClientRepository clientRepository;
-    private final EmployeeRepository employeeRepository;
-    private final PointRepository pointRepository;
     private final ContractForm contractForm;
     private final ClientForm clientForm;
 
@@ -78,8 +77,6 @@ public class ClientContractView extends VerticalLayout {
                               ClientForm clientForm) {
         this.contractRepository = contractRepository;
         this.clientRepository = clientRepository;
-        this.employeeRepository = employeeRepository;
-        this.pointRepository = pointRepository;
         this.contractForm = contractForm;
         this.clientForm = clientForm;
 
@@ -120,6 +117,10 @@ public class ClientContractView extends VerticalLayout {
                 .setHeader("Статус")
                 .setSortable(true);
 
+        contractGrid.addColumn(c -> c.getPoint() != null ? c.getPoint().getName() : "")
+                .setHeader("Точка выдачи")
+                .setSortable(true);
+
         contractGrid.addColumn(new ComponentRenderer<>(contract -> {
             HorizontalLayout actions = new HorizontalLayout();
 
@@ -130,21 +131,56 @@ public class ClientContractView extends VerticalLayout {
             Button deleteBtn = new Button(VaadinIcon.TRASH.create());
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
             deleteBtn.addClickListener(e -> confirmContractDeletion(contract));
-
             Button downloadBtn = new Button(VaadinIcon.DOWNLOAD.create());
             downloadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
             downloadBtn.addClickListener(e -> downloadPdfContract(contract));
 
-            actions.add(editBtn, deleteBtn, downloadBtn);
+            Button closeBtn = new Button("Закрыть");
+            closeBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+            closeBtn.setVisible("Активен".equals(contract.getStatus()));
+            closeBtn.addClickListener(e -> closeContract(contract));
+
+            actions.add(editBtn, deleteBtn, downloadBtn, closeBtn);
             return actions;
-        })).setHeader("Действия").setWidth("200px");
+        })).setHeader("Действия").setWidth("250px");
+    }
+    private void closeContract(Contract contract) {
+        if (contract == null) return;
+
+        Dialog confirmDialog = new Dialog();
+        confirmDialog.setCloseOnEsc(false);
+        confirmDialog.setCloseOnOutsideClick(false);
+
+        Span message = new Span("Вы действительно хотите закрыть договор №" + contract.getId() + "?");
+
+        Button confirmBtn = new Button("Закрыть", VaadinIcon.CHECK.create());
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        confirmBtn.addClickListener(e -> {
+            try {
+                contract.setStatus("Закрыт");
+                contractRepository.save(contract);
+                updateContractList();
+                confirmDialog.close();
+                Notification.show("Договор закрыт", 3000, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("Ошибка: " + ex.getMessage(), 5000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        Button cancelBtn = new Button("Отмена");
+        cancelBtn.addClickListener(e -> confirmDialog.close());
+
+        HorizontalLayout buttons = new HorizontalLayout(confirmBtn, cancelBtn);
+        buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
+        confirmDialog.add(new VerticalLayout(message, buttons));
+        confirmDialog.open();
     }
     private void downloadPdfContract(Contract contract) {
         try {
             byte[] pdfBytes = generatePdfBytes(contract);
             String base64Pdf = Base64.getEncoder().encodeToString(pdfBytes);
-            UI.getCurrent().getPage().executeJs(
-                    "const byteChars = atob($0);" +
+            UI.getCurrent().getPage().executeJs("const byteChars = atob($0);" +
                             "const byteNumbers = new Array(byteChars.length);" +
                             "for (let i = 0; i < byteChars.length; i++) {" +
                             "    byteNumbers[i] = byteChars.charCodeAt(i);" +
@@ -164,7 +200,6 @@ public class ClientContractView extends VerticalLayout {
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
-
     private byte[] generatePdfBytes(Contract contract) throws IOException {
         try (PDDocument doc = new PDDocument()) {
             PDPage page = new PDPage(PDRectangle.A4);
@@ -177,7 +212,6 @@ public class ClientContractView extends VerticalLayout {
                     throw new IOException("Шрифт arial.ttf не найден в resources/fonts/");
                 }
             }
-
             try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
                 cs.beginText();
                 cs.setFont(font, 12);
@@ -193,7 +227,10 @@ public class ClientContractView extends VerticalLayout {
                 cs.newLine();
                 cs.showText("Сумма: " + contract.getAmount());
                 cs.newLine();
-                cs.showText("Срок до: " + contract.getTerm());
+                cs.showText("Срок: " + contract.getTerm());
+                cs.newLine();
+                cs.showText("Точка выдачи: " + (contract.getPoint() != null ?
+                        contract.getPoint().getName() + " по адресу " + contract.getPoint().getAddress(): "Не указано"));
                 cs.newLine();
                 cs.showText("Менеджер: " + (contract.getEmployee() != null ?
                         contract.getEmployee().getFullName() : "Не назначен"));
@@ -208,8 +245,7 @@ public class ClientContractView extends VerticalLayout {
             return out.toByteArray();
         }
     }
-
-    private void configureClientGrid() {
+            private void configureClientGrid() {
         clientGrid.removeAllColumns();
 
         clientGrid.addColumn(Client::getId)
@@ -245,42 +281,48 @@ public class ClientContractView extends VerticalLayout {
         contractsLayout.setSizeFull();
         contractsLayout.setPadding(true);
         contractsLayout.setSpacing(true);
+
         configureContractFilter();
+
         Button addContractBtn = new Button("Добавить договор", VaadinIcon.PLUS.create());
         addContractBtn.addClickListener(e -> addContract());
+
         Button refreshContractBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshContractBtn.addClickListener(e -> updateContractList());
+
         HorizontalLayout contractToolbar = new HorizontalLayout(contractFilter, addContractBtn, refreshContractBtn);
         contractToolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-        contractsLayout.add(contractToolbar, contractGrid, contractForm);
+        contractsLayout.add(contractToolbar, contractGrid);
 
         VerticalLayout clientsLayout = new VerticalLayout();
         clientsLayout.setSizeFull();
         clientsLayout.setPadding(true);
         clientsLayout.setSpacing(true);
+
         configureClientFilter();
+
         Button addClientBtn = new Button("Добавить клиента", VaadinIcon.PLUS.create());
         addClientBtn.addClickListener(e -> addClient());
+
         Button refreshClientBtn = new Button("Обновить", VaadinIcon.REFRESH.create());
         refreshClientBtn.addClickListener(e -> updateClientList());
+
         HorizontalLayout clientToolbar = new HorizontalLayout(clientFilter, addClientBtn, refreshClientBtn);
         clientToolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
-        clientsLayout.add(clientToolbar, clientGrid, clientForm);
+        clientsLayout.add(clientToolbar, clientGrid);
 
         tabSheet.add(new Tab("Договоры"), contractsLayout);
         tabSheet.add(new Tab("Клиенты"), clientsLayout);
+
         tabSheet.addSelectedChangeListener(event -> {
-            contractForm.setVisible(false);
-            clientForm.setVisible(false);
             contractGrid.asSingleSelect().clear();
             clientGrid.asSingleSelect().clear();
-            if (event.getSelectedTab().getLabel().equals("Договоры")) {
-                contractForm.refreshComboBoxItems();
-            }
         });
+
         tabSheet.setWidthFull();
         tabSheet.getStyle().set("margin", "0 auto");
         add(tabSheet);
+
         updateLists();
     }
 
@@ -302,9 +344,7 @@ public class ClientContractView extends VerticalLayout {
         contractForm.setSaveHandler(() -> {
             try {
                 contractRepository.save(contractForm.getContract());
-                contractForm.refreshComboBoxItems(); 
                 updateContractList();
-                contractForm.setVisible(false);
                 Notification.show("Договор сохранен", 3000, Notification.Position.BOTTOM_END);
                 logger.info("Contract saved: {}", contractForm.getContract().getId());
             } catch (Exception e) {
@@ -317,9 +357,7 @@ public class ClientContractView extends VerticalLayout {
         clientForm.setSaveHandler(() -> {
             try {
                 clientRepository.save(clientForm.getClient());
-                contractForm.refreshComboBoxItems();
                 updateClientList();
-                clientForm.setVisible(false);
                 Notification.show("Клиент сохранен", 3000, Notification.Position.BOTTOM_END);
                 logger.info("Client saved: {}", clientForm.getClient().getId());
             } catch (Exception e) {
@@ -362,30 +400,56 @@ public class ClientContractView extends VerticalLayout {
     }
 
     private void addContract() {
-        contractGrid.asSingleSelect().clear();
+        Dialog dialog = new Dialog();
+        dialog.setWidth("800px");
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+
         Contract newContract = new Contract();
         newContract.setAmount(BigDecimal.ZERO);
         newContract.setTerm(LocalDate.now().plusMonths(1));
         newContract.setStatus("Активен");
+
         contractForm.setContract(newContract);
-        contractForm.setVisible(true);
+        contractForm.setParentDialog(dialog);
+        contractForm.setSaveHandler(() -> {
+            contractRepository.save(contractForm.getContract());
+            updateContractList();
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.add(contractForm);
+        dialogLayout.setPadding(true);
+        dialogLayout.setSpacing(true);
+        dialogLayout.setSizeFull();
+
+        dialog.add(dialogLayout);
+        dialog.open();
     }
 
     private void editContract(Contract contract) {
-        if (contract == null) {
-            contractForm.setVisible(false);
-            return;
-        }
-        UI ui = UI.getCurrent();
-        if (ui != null) {
-            ui.access(() -> {
-                contractForm.setContract(contract);
-                contractForm.setVisible(true);
-            });
-        } else {
-            contractForm.setContract(contract);
-            contractForm.setVisible(true);
-        }
+        if (contract == null) return;
+
+        Dialog dialog = new Dialog();
+        dialog.setWidth("800px");
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+
+        contractForm.setContract(contract);
+        contractForm.setParentDialog(dialog);
+        contractForm.setSaveHandler(() -> {
+            contractRepository.save(contractForm.getContract());
+            updateContractList();
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.add(contractForm);
+        dialogLayout.setPadding(true);
+        dialogLayout.setSpacing(true);
+        dialogLayout.setSizeFull();
+
+        dialog.add(dialogLayout);
+        dialog.open();
     }
 
     private void confirmContractDeletion(Contract contract) {
@@ -428,18 +492,51 @@ public class ClientContractView extends VerticalLayout {
     }
 
     private void addClient() {
-        clientGrid.asSingleSelect().clear();
+        Dialog dialog = new Dialog();
+        dialog.setWidth("500px");
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+
         clientForm.setClient(new Client());
-        clientForm.setVisible(true);
+        clientForm.setParentDialog(dialog);
+        clientForm.setSaveHandler(() -> {
+            clientRepository.save(clientForm.getClient());
+            updateClientList();
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.add(clientForm);
+        dialogLayout.setPadding(true);
+        dialogLayout.setSpacing(true);
+        dialogLayout.setSizeFull();
+
+        dialog.add(dialogLayout);
+        dialog.open();
     }
 
     private void editClient(Client client) {
-        if (client == null) {
-            clientForm.setVisible(false);
-            return;
-        }
+        if (client == null) return;
+
+        Dialog dialog = new Dialog();
+        dialog.setWidth("500px");
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+
         clientForm.setClient(client);
-        clientForm.setVisible(true);
+        clientForm.setParentDialog(dialog);
+        clientForm.setSaveHandler(() -> {
+            clientRepository.save(clientForm.getClient());
+            updateClientList();
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.add(clientForm);
+        dialogLayout.setPadding(true);
+        dialogLayout.setSpacing(true);
+        dialogLayout.setSizeFull();
+
+        dialog.add(dialogLayout);
+        dialog.open();
     }
 
     private void confirmClientDeletion(Client client) {

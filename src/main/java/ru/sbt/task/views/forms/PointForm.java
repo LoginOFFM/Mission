@@ -1,7 +1,9 @@
-package ru.sbt.task.views.editor;
+package ru.sbt.task.views.forms;
 
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
@@ -10,11 +12,9 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import ru.sbt.task.model.entity.Point;
 
-import java.util.function.Consumer;
-
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class PointEditor extends FormLayout {
+public class PointForm extends FormLayout {
     private final TextField name = new TextField("Название");
     private final TextField address = new TextField("Адрес");
     private final Button save = new Button("Сохранить");
@@ -23,13 +23,22 @@ public class PointEditor extends FormLayout {
     private Point point;
     private Runnable saveHandler;
 
-    public PointEditor() {
+    public Dialog getParentDialog() {
+        return parentDialog;
+    }
+
+    private Dialog parentDialog;
+
+
+    public PointForm() {
         configureLayout();
         configureBinder();
         setupButtons();
         setVisible(false);
     }
-
+    public void setParentDialog(Dialog dialog) {
+        this.parentDialog = dialog;
+    }
     private void configureLayout() {
         setWidth("25em");
         add(name, address, new HorizontalLayout(save, cancel));
@@ -57,16 +66,31 @@ public class PointEditor extends FormLayout {
     }
 
     private void save() {
-        if (binder.writeBeanIfValid(point) && saveHandler != null) {
-            saveHandler.run();
+        try {
+            if (!binder.writeBeanIfValid(point)) {
+                return;
+            }
+
+            if (saveHandler != null) {
+                saveHandler.run();
+            }
+
+            if (getParentDialog() != null) {
+                getParentDialog().close();
+            }
+
+        } catch (Exception e) {
+            Notification.show("Ошибка сохранения: " + e.getMessage(),
+                    3000, Notification.Position.BOTTOM_END);
         }
     }
 
     private void cancel() {
-        setVisible(false);
+        if (parentDialog != null) {
+            parentDialog.close();
+        }
         binder.readBean(point);
     }
-
     public void setSaveHandler(Runnable saveHandler) {
         this.saveHandler = saveHandler;
     }

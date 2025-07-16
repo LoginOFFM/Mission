@@ -1,8 +1,9 @@
-package ru.sbt.task.views.editor;
+package ru.sbt.task.views.forms;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -10,8 +11,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
-import com.vaadin.flow.data.binder.ValidationException;
-import com.vaadin.flow.data.provider.ListDataProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
@@ -22,11 +21,10 @@ import ru.sbt.task.model.entity.Procuration;
 import ru.sbt.task.model.repository.ProcurationRepository;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class EmployeeEditor extends FormLayout {
+public class EmployeeForm extends FormLayout {
 
     private final TextField fullName = new TextField("ФИО");
     private final ComboBox<Procuration> procuration = new ComboBox<>("Доверенность");
@@ -41,13 +39,18 @@ public class EmployeeEditor extends FormLayout {
     private final PasswordEncoder passwordEncoder;
     private final ProcurationRepository procurationRepo;
 
+    public Dialog getParentDialog() {
+        return parentDialog;
+    }
+
+    private Dialog parentDialog;
     private Employee employee;
     private boolean isNewEmployee;
     public Runnable saveHandler;
 
     @Autowired
-    public EmployeeEditor(ProcurationRepository procurationRepo,
-                          PasswordEncoder passwordEncoder) {
+    public EmployeeForm(ProcurationRepository procurationRepo,
+                        PasswordEncoder passwordEncoder) {
         this.procurationRepo = procurationRepo;
         this.passwordEncoder = passwordEncoder;
 
@@ -70,7 +73,9 @@ public class EmployeeEditor extends FormLayout {
                     3000, Notification.Position.BOTTOM_END);
         }
     }
-
+    public void setParentDialog(Dialog dialog) {
+        this.parentDialog = dialog;
+    }
     private void configureFields() {
         role.setItems("ADMIN", "USER");
 
@@ -159,28 +164,35 @@ public class EmployeeEditor extends FormLayout {
                         3000, Notification.Position.MIDDLE);
                 return;
             }
-            if (binder.writeBeanIfValid(employee)) {
-                if (saveHandler != null) {
-                    saveHandler.run();
-                    setVisible(false);
-                }
+
+            if (!binder.writeBeanIfValid(employee)) {
+                return;
             }
+
+
+            if (saveHandler != null) {
+                saveHandler.run();
+            }
+
+            if (getParentDialog() != null) {
+                getParentDialog().close();
+            }
+
         } catch (Exception e) {
             Notification.show("Ошибка сохранения: " + e.getMessage(),
                     3000, Notification.Position.BOTTOM_END);
         }
     }
-
-    private void cancel() {
-        setVisible(false);
-        binder.readBean(employee);
-    }
-
     public void setSaveHandler(Runnable saveHandler) {
         this.saveHandler = saveHandler;
     }
-
     public Employee getEmployee() {
         return employee;
+    }
+    private void cancel() {
+        if (parentDialog != null) {
+            parentDialog.close();
+        }
+        binder.readBean(employee);
     }
 }
